@@ -2,7 +2,7 @@ _ = require 'underscore'
 net = require 'net'
 punycode = require 'punycode'
 util = require 'util'
-
+sock5 = require 'socksjs'
 
 @SERVERS = require './servers.json'
 
@@ -17,6 +17,8 @@ util = require 'util'
 	done = _.once done
 
 	server = options.server
+	
+	proxy = options.proxy
 
 	if not server
 		switch true
@@ -53,15 +55,26 @@ util = require 'util'
 		port: 43
 		query: "$addr\r\n"
 
-	socket = net.connect server.port, server.host, =>
-		socket.write server.query.replace '$addr', punycode.toASCII addr
+	if typeof proxy is 'string'
+		parts = proxy.split ':'
+		proxy = 
+			host: parts[0]
+			port: parts[1]
+	data = ''
+	
+	if proxy and proxy.port and proxy.host
+		socket = sock5.connect server,proxy, => 
+			socket.write server.query.replace '$addr', punycode.toASCII addr
+	else
+		socket = net.connect server.port, server.host, =>
+			socket.write server.query.replace '$addr', punycode.toASCII addr
 	socket.setEncoding 'utf-8'
 	if options.timeout?
 		socket.setTimeout options.timeout
 
-	data = ''
 	socket.on 'data', (chunk) =>
-		data += chunk
+			data += chunk
+	
 
 	socket.on 'timeout', =>
 		done new Error 'lookup: timeout'
@@ -104,6 +117,9 @@ if module is require.main
 	.default('s', null)
 	.alias('s', 'server')
 	.describe('s', 'whois server')
+	.alias('p','proxy')
+	.describe('p','proxy address')
+	.default('p',null)
 	.default('f', 0)
 	.alias('f', 'follow')
 	.describe('f', 'number of times to follow redirects')
@@ -124,7 +140,7 @@ if module is require.main
 		console.log optimist.help()
 		process.exit 1
 
-	@lookup optimist.argv._[0], server: optimist.argv.server, follow: optimist.argv.follow, verbose: optimist.argv.verbose, (err, data) =>
+	@lookup optimist.argv._[0], server: optimist.argv.server, follow: optimist.argv.follow, verbose: optimist.argv.verbose, proxy: optimist.argv.proxy, (err, data) =>
 		if err?
 			console.log err
 			process.exit 1

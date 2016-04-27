@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "optimist": "^0.6.1",
-    "underscore": "~1.5.2"
+    "underscore": "~1.5.2",
+    "socksjs": "~0.5.0"
   }
 }
